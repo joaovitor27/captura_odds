@@ -155,7 +155,7 @@ class DriverUtils:
         if os.environ.get('CHROME_BINARY'):
             options.binary_location = os.environ.get('CHROME_BINARY')
 
-        chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+        chromedriver_path: Union[str, None] = os.environ.get('CHROMEDRIVER_PATH')
         options.add_experimental_option('prefs', prefs)
 
         if chromedriver_path is None:
