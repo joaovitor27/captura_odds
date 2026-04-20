@@ -1,0 +1,8 @@
+[project]
+name = "captura-odds"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "selenium>=4.43.0",
+    "webdriver-manager>=4.0.2",
+]
