@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import List
+import pandas as pd
 
 from chromium import CustomWebDriver
 from database.__inti__ import DatabaseManager
@@ -35,8 +37,6 @@ if __name__ == '__main__':
             print(f"✔️ Encontradas {len(competitions_data)} competições no banco de dados!")
             print("Pulando mapeamento de estrutura e utilizando URLs diretas.")
 
-            # ---> O CÓDIGO QUE FALTAVA <---
-            # Popula a variável "matches" de cada competição usando os links diretos
             scraper.refresh_matches_from_urls(competitions_data)
 
         print("\nIniciando Exploração de Mercados (Fase 2)...")
@@ -47,8 +47,13 @@ if __name__ == '__main__':
             strategy.save_to_db()
         print("=" * 60)
 
-        print("\n" + "=" * 60)
-        print(f"TOTAL DE MERCADOS ÚNICOS ENCONTRADOS: {len(mercados_encontrados)}")
+        print("\nGERANDO RELATÓRIO EXCEL...")
+        filename = f"relatorio_odds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+            for strategy in strategies:
+                strategy.export_to_excel(writer)
+
+        print(f"✅ Arquivo gerado com sucesso: {filename}")
         print("=" * 60)
 
     except Exception as e:

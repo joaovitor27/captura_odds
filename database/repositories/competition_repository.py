@@ -1,6 +1,6 @@
 from typing import List
 
-from database.__inti__ import DatabaseManager
+from database.connection import DatabaseManager
 from models.rei_do_pitado_models import Competition
 
 

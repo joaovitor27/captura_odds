@@ -1,3 +1,4 @@
+import pandas as pd
 from abc import ABC, abstractmethod
 from selenium.webdriver.remote.webelement import WebElement
 from models.rei_do_pitado_models import Match
@@ -19,4 +20,9 @@ class MarketStrategy(ABC):
     @abstractmethod
     def save_to_db(self) -> None:
         """Envia os dados acumulados para o respectivo repositório."""
+        pass
+
+    @abstractmethod
+    def export_to_excel(self, writer: pd.ExcelWriter) -> None:
+        """Exporta os dados do banco para uma aba (sheet) no Excel."""
         pass

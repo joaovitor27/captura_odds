@@ -1,4 +1,5 @@
 from typing import List
+import pandas as pd
 
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -28,3 +29,16 @@ class ResultadoFinalStrategy(MarketStrategy):
             print(f"💾 Salvando {len(self.accumulated_data)} odds de 'Resultado Final'...")
             self.repository.save_all(self.accumulated_data)
             self.accumulated_data.clear()
+
+    def export_to_excel(self, writer: pd.ExcelWriter) -> None:
+        """Consulta o SQLite e salva na aba do Excel correspondente."""
+        query = "SELECT * FROM resultado_final"
+
+        # Pega a conexão direto do gerenciador do repositório
+        with self.repository.db.get_connection() as conn:
+            df = pd.read_sql_query(query, conn)
+
+        if not df.empty:
+            # Escreve os dados em uma aba chamada "Resultado Final"
+            df.to_excel(writer, sheet_name="Resultado Final", index=False)
+            print("📊 Aba 'Resultado Final' populada no Excel com sucesso.")

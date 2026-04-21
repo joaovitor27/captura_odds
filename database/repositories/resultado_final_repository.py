@@ -1,6 +1,6 @@
 from typing import List
 
-from database.__inti__ import DatabaseManager
+from database.connection import DatabaseManager
 from models.rei_do_pitado_models import ResultadoFinalMarket
 
 
@@ -15,50 +15,50 @@ class ResultadoFinalRepository:
                      CREATE TABLE IF NOT EXISTS resultado_final
                      (
                          id
-                         INTEGER
-                         PRIMARY
-                         KEY
-                         AUTOINCREMENT,
+                             INTEGER
+                             PRIMARY
+                                 KEY
+                             AUTOINCREMENT,
                          competicao
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          partida
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          data
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          hora
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          time_casa
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          time_fora
-                         TEXT
-                         NOT
-                         NULL,
+                             TEXT
+                             NOT
+                                 NULL,
                          odd_time_casa
-                         REAL
-                         NOT
-                         NULL,
+                             REAL
+                             NOT
+                                 NULL,
                          odd_time_fora
-                         REAL
-                         NOT
-                         NULL,
+                             REAL
+                             NOT
+                                 NULL,
                          odd_empate
-                         REAL
-                         NOT
-                         NULL,
+                             REAL
+                             NOT
+                                 NULL,
                          is_pagamento_antecipado
-                         BOOLEAN
-                         NOT
-                         NULL
+                             BOOLEAN
+                             NOT
+                                 NULL
                      ) \
                      """
         with self.db.get_connection() as conn:
