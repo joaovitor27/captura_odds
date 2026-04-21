@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from scrapers.market_parsers import ResultadoFinalParser
+from strategies.strategies import MarketStrategy
 
 
 class ReiDoPitacoMarketExplorer:
@@ -17,15 +18,17 @@ class ReiDoPitacoMarketExplorer:
     Lida nativamente com listas virtualizadas (React Virtuoso) e eventos sintéticos.
     """
 
-    def __init__(self, driver: CustomWebDriver) -> None:
+    def __init__(self, driver: CustomWebDriver, strategies: List[MarketStrategy]) -> None:
         self.driver: CustomWebDriver = driver
+        self.strategies: List[MarketStrategy] = strategies
         self.unique_markets: Set[str] = set()
         self.base_url: str = 'https://reidopitaco.bet.br/betting/sports/20000000169?tab=competitions'
 
-    def discover_unique_markets(self, competitions: List[Competition]) -> Set[str]:
+    def discover_unique_markets(self, competitions: List[Competition]) -> Tuple[Set[str], List[ResultadoFinalMarket]]:
         """
         Itera sobre o mapeamento prévio, acessa cada jogo e constrói o Set de mercados.
         """
+        todas_odds_resultado_final: List[ResultadoFinalMarket] = []
         for comp in competitions:
             if not comp.matches:
                 continue
@@ -37,7 +40,7 @@ class ReiDoPitacoMarketExplorer:
             # ========================================================
             if comp.url:
                 self.driver.get(comp.url)
-                time.sleep(2)  # Aguarda a lista de jogos renderizar
+                time.sleep(1.5)  # Aguarda a lista de jogos renderizar
             else:
                 print(f"  [Erro] URL não encontrada para {comp.name}. Pulando.")
                 continue
@@ -60,7 +63,9 @@ class ReiDoPitacoMarketExplorer:
                         DriverUtils.wait_presence_by_xpath(self.driver, xpath_tab_todos, timeout=10)
 
                         # 4. Extrai os Mercados
-                        self._extract_markets_from_match_page(comp.name, match)
+                        odds_da_partida = self._extract_markets_from_match_page(comp.name, match)
+                        if odds_da_partida:
+                            todas_odds_resultado_final.extend(odds_da_partida)
 
                         # 5. RETORNO RÁPIDO
                         self.driver.back()
@@ -77,7 +82,7 @@ class ReiDoPitacoMarketExplorer:
                             self.driver.get(comp.url)
                             time.sleep(2)
 
-        return self.unique_markets
+        return self.unique_markets, todas_odds_resultado_final
 
     def _extract_markets_from_match_page(self, comp_name: str, match: Match) -> list[ResultadoFinalMarket] | None:
         """
@@ -116,16 +121,15 @@ class ReiDoPitacoMarketExplorer:
                                                 ".//button[@data-testid='event-market-base-card-toggle']//span")
                 market_title: str = str(title_el.get_attribute("textContent")).strip()
 
-                if market_title and market_title not in self.unique_markets:
-                    self.unique_markets.add(market_title)
+                if market_title:
+                    if market_title not in self.unique_markets:
+                        self.unique_markets.add(market_title)
+                        print(f"----> NOVO MERCADO ENCONTRADO NO SITE: {market_title}")
 
-                    # === ROTEAMENTO DE PARSERS ===
-                    if "Resultado Final" in market_title:
-                        market_data = ResultadoFinalParser.parse(card_el, comp_name, match)
-                        if market_data:
-                            scraped_resultado_final.append(market_data)
-                            print(
-                                f"✅ ODD CAPTURADA: {market_title} | {match.home_team} ({market_data.odd_time_casa}) | Empate ({market_data.odd_empate}) | {match.away_team} ({market_data.odd_time_fora})")
+                    for strategy in self.strategies:
+                        if strategy.can_handle(market_title):
+                            strategy.parse_and_accumulate(card_el, comp_name, match)
+                            break
 
                     # Futuramente: elif "Total De Gols" in market_title: ...
 
@@ -297,48 +301,97 @@ class ReiDoPitacoScraper:
 
     def _parse_matches_from_page(self) -> List[Match]:
         """
-        Varre a DOM da página da competição em busca apenas da identidade
-        das partidas (Times e Data/Hora).
+        Varre a DOM da página da competição em busca de partidas.
+        Faz scroll automático para capturar listas virtualizadas e
+        lida com partidas Ao Vivo e Pré-jogo estruturalmente.
         """
-        matches: List[Match] = []
+        # Usamos um dict para garantir que não haverá duplicatas se o scroll ler o mesmo jogo duas vezes
+        matches_dict: Dict[str, Match] = {}
 
         try:
-            xpath_match_row = "//div[@aria-label='UIOneAgainstTwoPreEventLine']"
+            # Novo XPath estrutural: Pega qualquer linha que tenha a div de times (flex-1) e a de odds (flex-2)
+            # Isso ignora se o jogo é PreEvent ou "undefined--line" (Ao Vivo)
+            xpath_any_match_row = "//div[div[contains(@class, 'flex-1')] and div[contains(@class, 'flex-2')]]"
 
             try:
-                # Timeout alto (15s) exclusivo para aguardar a listagem de jogos renderizar
-                DriverUtils.wait_presence_by_xpath(self.driver, xpath_match_row, timeout=15)
+                # Aguarda a estrutura de jogos carregar
+                DriverUtils.wait_presence_by_xpath(self.driver, xpath_any_match_row, timeout=15)
             except:
-                # Se der timeout após 15s, a competição realmente não tem jogos abertos no momento
+                # Se der timeout, a competição realmente não tem jogos abertos no momento
                 return []
 
-            match_elements = self.driver.find_elements(By.XPATH, xpath_match_row)
+            # Inicia o loop de varredura com Scroll
+            while True:
+                match_elements = self.driver.find_elements(By.XPATH, xpath_any_match_row)
 
-            for match_el in match_elements:
-                try:
-                    # Extração rigorosa dos Times
-                    team_spans = match_el.find_elements(By.XPATH,
-                                                        ".//span[contains(@class, 'text-[12px]') and contains(@class, 'font-sans-bold')]")
-                    if len(team_spans) < 2:
+                for match_el in match_elements:
+                    try:
+                        # 1. Extração rigorosa dos Times
+                        team_spans = match_el.find_elements(By.XPATH,
+                                                            ".//span[contains(@class, 'text-[12px]') and contains(@class, 'font-sans-bold')]")
+                        if len(team_spans) < 2:
+                            continue
+
+                        home_team = team_spans[0].get_attribute("textContent").strip()
+                        away_team = team_spans[1].get_attribute("textContent").strip()
+                        match_id = f"{home_team} x {away_team}"
+
+                        # Se já pegamos esse jogo no scroll anterior, pula pro próximo
+                        if match_id in matches_dict:
+                            continue
+
+                        # 2. Extração da Data e Hora (Lidando com "Pré-jogo" vs "Ao Vivo")
+                        match_time = "Indefinido"
+
+                        # Tenta pegar o horário normal de pré-jogo (classe mui-1kkvss8)
+                        time_spans = match_el.find_elements(By.XPATH, ".//span[contains(@class, 'mui-1kkvss8')]")
+                        if time_spans:
+                            match_time = time_spans[0].get_attribute("textContent").strip()
+                        else:
+                            # Fallback: Se não tem horário, verifica se tem a flag "Ao vivo"
+                            live_indicator = match_el.find_elements(By.XPATH, ".//span[contains(text(), 'Ao vivo')]")
+                            if live_indicator:
+                                # Se for ao vivo, tenta capturar o cronômetro (ex: "2T 46:10")
+                                timer_spans = match_el.find_elements(By.XPATH,
+                                                                     ".//span[contains(@class, 'mui-15r481u')]")
+                                if timer_spans:
+                                    timer_text = " ".join([t.get_attribute("textContent").strip() for t in timer_spans])
+                                    match_time = f"Ao vivo ({timer_text})"
+                                else:
+                                    match_time = "Ao vivo"
+
+                        # Salva no dicionário
+                        matches_dict[match_id] = Match(
+                            home_team=home_team,
+                            away_team=away_team,
+                            datetime=match_time
+                        )
+
+                    except Exception:
+                        # Ignora falhas em um card específico
                         continue
 
-                    home_team = team_spans[0].get_attribute("textContent").strip()
-                    away_team = team_spans[1].get_attribute("textContent").strip()
+                # 3. Rola a página para baixo para forçar o React a renderizar os próximos jogos virtuais
+                self.driver.execute_script("window.scrollBy(0, 800);")
+                time.sleep(0.5)
 
-                    # Extração rigorosa da Data e Hora
-                    datetime_span = match_el.find_element(By.XPATH, ".//span[contains(@class, 'mui-1kkvss8')]")
-                    match_time = datetime_span.get_attribute("textContent").strip()
+                # 4. Cálculo para saber se chegou ao fim da página
+                new_height = self.driver.execute_script("return document.body.scrollHeight")
+                current_scroll = self.driver.execute_script("return window.pageYOffset + window.innerHeight")
 
-                    matches.append(Match(
-                        home_team=home_team,
-                        away_team=away_team,
-                        datetime=match_time
-                    ))
+                if current_scroll >= new_height:
+                    # Dá um pequeno delay e checa novamente para evitar falsos positivos de lazy loading
+                    time.sleep(1)
+                    current_scroll = self.driver.execute_script("return window.pageYOffset + window.innerHeight")
+                    new_height = self.driver.execute_script("return document.body.scrollHeight")
+                    if current_scroll >= new_height:
+                        break
 
-                except Exception:
-                    continue
+            # Por garantia, sobe a página toda de volta pro topo para não quebrar cliques futuros
+            self.driver.execute_script("window.scrollTo(0, 0);")
 
         except Exception as e:
             print(f"Erro inesperado no parse dos jogos: {e}")
 
-        return matches
+        # Retorna apenas a lista de valores (os objetos Match)
+        return list(matches_dict.values())
