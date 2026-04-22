@@ -6,8 +6,6 @@ import time
 from typing import List, Set, Dict, Tuple
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-
-from scrapers.market_parsers import ResultadoFinalParser
 from strategies.strategies import MarketStrategy
 from utils.logger import console
 
@@ -27,7 +25,15 @@ class ReiDoPitacoMarketExplorer:
 
     def discover_unique_markets(self, competitions: List[Competition]) -> Tuple[Set[str], List[ResultadoFinalMarket]]:
         """
-        Itera sobre o mapeamento prévio, acessa cada jogo e constrói o Set de mercados.
+        Itera sobre o mapeamento prévio de competições, acessando os detalhes de cada partida 
+        para mapear e acumular todos os tipos de apostas (mercados) únicos.
+        
+        Args:
+            competitions (List[Competition]): Lista de competições a serem exploradas.
+            
+        Returns:
+            Tuple[Set[str], List[ResultadoFinalMarket]]: Tupla contendo os mercados únicos encontrados 
+                                                        e a lista de odds registradas.
         """
         todas_odds_resultado_final: List[ResultadoFinalMarket] = []
         for comp in competitions:
@@ -36,20 +42,16 @@ class ReiDoPitacoMarketExplorer:
 
             print(f"\n🔍 Explorando mercados da competição: {comp.name}")
 
-            # ========================================================
-            # 1. SETUP DE PERFORMANCE: Usa a URL direta salva no banco!
-            # ========================================================
             if comp.url:
                 self.driver.get(comp.url)
-                time.sleep(1.5)  # Aguarda a lista de jogos renderizar
+                time.sleep(1.5)
             else:
                 console.print(f"  [danger][Erro] URL não encontrada para {comp.name}. Pulando.[/danger]")
                 continue
 
             for match in comp.matches:
-                for attempt in range(1, 4):  # Sistema de Retry isolado por partida
+                for attempt in range(1, 4):
                     try:
-                        # 2. Foca no elemento exato que possui o onClick do React (role='button')
                         xpath_match_card: str = f"(//div[@aria-label='UIOneAgainstTwoPreEventLine' and contains(., '{match.home_team}')]//div[@role='button'])[1]"
                         match_el: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, xpath_match_card,
                                                                                   timeout=10)
@@ -59,16 +61,13 @@ class ReiDoPitacoMarketExplorer:
                         except:
                             self.driver.execute_script("arguments[0].click();", match_el)
 
-                        # 3. VALIDAÇÃO DE ESTADO: Garante que a rota mudou
                         xpath_tab_todos: str = "//button[@role='tab' and contains(., 'Todos')]"
                         DriverUtils.wait_presence_by_xpath(self.driver, xpath_tab_todos, timeout=10)
 
-                        # 4. Extrai os Mercados
                         odds_da_partida = self._extract_markets_from_match_page(comp.name, match)
                         if odds_da_partida:
                             todas_odds_resultado_final.extend(odds_da_partida)
 
-                        # 5. RETORNO RÁPIDO
                         self.driver.back()
                         time.sleep(1.5)
                         break
@@ -79,7 +78,6 @@ class ReiDoPitacoMarketExplorer:
                         if attempt == 3:
                             console.print(f"  [danger][Erro] Abortando a exploração do jogo {match.home_team}.[/danger]")
                         else:
-                            # Fallback: Recarrega a URL direta da competição
                             self.driver.get(comp.url)
                             time.sleep(2)
 
@@ -217,13 +215,15 @@ class ReiDoPitacoScraper:
 
     def _extract_category_competitions(self, category_name: str) -> List[Competition]:
         """
-        Extrai as competições de uma categoria específica lendo o textContent
-        direto da DOM, ignorando se o elemento MuiCollapse está aberto ou fechado.
+        Extrai as competições de uma categoria específica diretamente da DOM.
+        Lê o textContent, ignorando as restrições visuais do MuiCollapse.
+        
+        Args:
+            category_name (str): O nome da categoria alvo.
+            
+        Returns:
+            List[Competition]: Uma lista de competições encontradas.
         """
-        # A lógica do XPath:
-        # 1. Acha o span com o nome da categoria.
-        # 2. Sobe até a div contêiner pai que possui um irmão (sibling) com a classe 'MuiCollapse-root'.
-        # 3. Entra nesse irmão (MuiCollapse-root) e captura todos os spans com as competições.
         xpath: str = (
             f"//span[contains(text(), '{category_name}')]"
             f"/ancestor::div[following-sibling::div[contains(@class, 'MuiCollapse-root')]][1]"
@@ -327,7 +327,6 @@ class ReiDoPitacoScraper:
 
                 for match_el in match_elements:
                     try:
-                        # 1. Extração rigorosa dos Times
                         team_spans = match_el.find_elements(By.XPATH,
                                                             ".//span[contains(@class, 'text-[12px]') and contains(@class, 'font-sans-bold')]")
                         if len(team_spans) < 2:
@@ -337,22 +336,17 @@ class ReiDoPitacoScraper:
                         away_team = team_spans[1].get_attribute("textContent").strip()
                         match_id = f"{home_team} x {away_team}"
 
-                        # Se já pegamos esse jogo no scroll anterior, pula pro próximo
                         if match_id in matches_dict:
                             continue
 
-                        # 2. Extração da Data e Hora (Lidando com "Pré-jogo" vs "Ao Vivo")
                         match_time = "Indefinido"
 
-                        # Tenta pegar o horário normal de pré-jogo (classe mui-1kkvss8)
                         time_spans = match_el.find_elements(By.XPATH, ".//span[contains(@class, 'mui-1kkvss8')]")
                         if time_spans:
                             match_time = time_spans[0].get_attribute("textContent").strip()
                         else:
-                            # Fallback: Se não tem horário, verifica se tem a flag "Ao vivo"
                             live_indicator = match_el.find_elements(By.XPATH, ".//span[contains(text(), 'Ao vivo')]")
                             if live_indicator:
-                                # Se for ao vivo, tenta capturar o cronômetro (ex: "2T 46:10")
                                 timer_spans = match_el.find_elements(By.XPATH,
                                                                      ".//span[contains(@class, 'mui-15r481u')]")
                                 if timer_spans:
@@ -361,7 +355,6 @@ class ReiDoPitacoScraper:
                                 else:
                                     match_time = "Ao vivo"
 
-                        # Salva no dicionário
                         matches_dict[match_id] = Match(
                             home_team=home_team,
                             away_team=away_team,
@@ -369,10 +362,8 @@ class ReiDoPitacoScraper:
                         )
 
                     except Exception:
-                        # Ignora falhas em um card específico
                         continue
 
-                # 3. Rola a página para baixo para forçar o React a renderizar os próximos jogos virtuais
                 self.driver.execute_script("window.scrollBy(0, 800);")
                 time.sleep(0.5)
 

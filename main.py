@@ -1,3 +1,10 @@
+"""
+Módulo Principal - Captura de Odds (Rei do Pitaco)
+
+Coordena a inicialização do navegador customizado, a raspagem de dados nas páginas 
+de competições e de jogos, o acúmulo de dados de mercados (como odds e resultados finais) 
+e a exportação consolidada dessas informações para banco de dados e arquivos Excel.
+"""
 from datetime import datetime
 from typing import List
 import pandas as pd
