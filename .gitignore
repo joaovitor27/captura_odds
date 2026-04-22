@@ -10,3 +10,4 @@ dist/
 *.sqlite
 *.xlsx
 *.pyc
+*.zip
