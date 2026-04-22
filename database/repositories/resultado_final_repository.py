@@ -1,6 +1,6 @@
 from database.connection import DatabaseManager
 from database.repositories.base_repository import BaseRepository
-from models.rei_do_pitado_models import ResultadoFinalMarket
+from models.rei_do_pitaco.resultado_final import ResultadoFinalMarket
 
 
 class ResultadoFinalRepository(BaseRepository[ResultadoFinalMarket]):

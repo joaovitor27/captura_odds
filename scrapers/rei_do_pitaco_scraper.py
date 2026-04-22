@@ -1,11 +1,13 @@
 from chromium import CustomWebDriver
 from driver import DriverUtils
-from models.rei_do_pitado_models import Competition, Category, Match, ResultadoFinalMarket
 
 import time
 from typing import List, Set, Dict, Tuple
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
+
+from models.rei_do_pitaco.base_models import Competition, Match, Category
+from models.rei_do_pitaco.resultado_final import ResultadoFinalMarket
 from strategies.strategies import MarketStrategy
 from utils.logger import console
 
@@ -129,8 +131,6 @@ class ReiDoPitacoMarketExplorer:
                         if strategy.can_handle(market_title):
                             strategy.parse_and_accumulate(card_el, comp_name, match)
                             break
-
-                    # Futuramente: elif "Total De Gols" in market_title: ...
 
             self.driver.execute_script("arguments[0].scrollTop += arguments[0].clientHeight;", scroller_el)
             time.sleep(0.5)

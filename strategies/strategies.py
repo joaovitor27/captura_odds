@@ -1,7 +1,8 @@
 import pandas as pd
 from abc import ABC, abstractmethod
 from selenium.webdriver.remote.webelement import WebElement
-from models.rei_do_pitado_models import Match
+
+from models.rei_do_pitaco.base_models import Match
 
 
 class MarketStrategy(ABC):

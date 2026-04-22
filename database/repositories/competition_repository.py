@@ -2,7 +2,7 @@ from typing import List
 
 from database.connection import DatabaseManager
 from database.repositories.base_repository import BaseRepository
-from models.rei_do_pitado_models import Competition
+from models.rei_do_pitaco.base_models import Competition
 
 
 class CompetitionRepository(BaseRepository[Competition]):

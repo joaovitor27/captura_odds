@@ -3,9 +3,10 @@ import pandas as pd
 
 from selenium.webdriver.remote.webelement import WebElement
 
-from models.rei_do_pitado_models import ResultadoFinalMarket, Match
 from database.repositories.resultado_final_repository import ResultadoFinalRepository
-from scrapers.market_parsers import ResultadoFinalParser
+from models.rei_do_pitaco.base_models import Match
+from models.rei_do_pitaco.resultado_final import ResultadoFinalMarket
+from parsers.resultado_final_parser import ResultadoFinalParser
 from strategies.strategies import MarketStrategy
 
 

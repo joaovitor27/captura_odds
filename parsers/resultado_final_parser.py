@@ -1,7 +1,9 @@
 from typing import Optional
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-from models.rei_do_pitado_models import Match, ResultadoFinalMarket
+
+from models.rei_do_pitaco.base_models import Match
+from models.rei_do_pitaco.resultado_final import ResultadoFinalMarket
 
 
 class ResultadoFinalParser:

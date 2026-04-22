@@ -14,7 +14,7 @@ from database.connection import DatabaseManager
 from database.repositories.competition_repository import CompetitionRepository
 from database.repositories.resultado_final_repository import ResultadoFinalRepository
 from driver import DriverUtils
-from models.rei_do_pitado_models import Competition
+from models.rei_do_pitaco.base_models import Competition
 from scrapers.rei_do_pitaco_scraper import ReiDoPitacoScraper, ReiDoPitacoMarketExplorer
 from strategies.resultado_final_strategy import ResultadoFinalStrategy
 from strategies.strategies import MarketStrategy

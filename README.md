@@ -23,6 +23,7 @@ Uma automação em Python projetada para navegar no site Rei do Pitaco, extrair 
 📦 captura_odds
  ┣ 📂 database       # Lida com conexões de BD locais e repositórios
  ┣ 📂 models         # Classes de modelo e escopo de dados (dataclasses/Pydantic)
+ ┣ 📂 parsers        # Lógica de parsing dedicada para diferentes elementos da página
  ┣ 📂 scrapers       # Lógica base do Selenium para raspar os dados (ReiDoPitacoScraper)
  ┣ 📂 strategies     # Padrão strategy para parsing de odds em variados mercados
  ┣ 📂 utils          # Utilitários globais para toda a aplicação (Logs, Formatação)
