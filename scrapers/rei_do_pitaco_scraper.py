@@ -9,6 +9,7 @@ from selenium.webdriver.remote.webelement import WebElement
 
 from scrapers.market_parsers import ResultadoFinalParser
 from strategies.strategies import MarketStrategy
+from utils.logger import console
 
 
 class ReiDoPitacoMarketExplorer:
@@ -42,7 +43,7 @@ class ReiDoPitacoMarketExplorer:
                 self.driver.get(comp.url)
                 time.sleep(1.5)  # Aguarda a lista de jogos renderizar
             else:
-                print(f"  [Erro] URL não encontrada para {comp.name}. Pulando.")
+                console.print(f"  [danger][Erro] URL não encontrada para {comp.name}. Pulando.[/danger]")
                 continue
 
             for match in comp.matches:
@@ -73,10 +74,10 @@ class ReiDoPitacoMarketExplorer:
                         break
 
                     except Exception as e:
-                        print(
-                            f"  [Aviso] Falha de rota para {match.home_team} x {match.away_team} (Tentativa {attempt}). Erro: {type(e).__name__}")
+                        console.print(
+                            f"  [warning][Aviso] Falha de rota para {match.home_team} x {match.away_team} (Tentativa {attempt}). Erro: {type(e).__name__}[/warning]")
                         if attempt == 3:
-                            print(f"  [Erro] Abortando a exploração do jogo {match.home_team}.")
+                            console.print(f"  [danger][Erro] Abortando a exploração do jogo {match.home_team}.[/danger]")
                         else:
                             # Fallback: Recarrega a URL direta da competição
                             self.driver.get(comp.url)
@@ -98,14 +99,14 @@ class ReiDoPitacoMarketExplorer:
                 self.driver.execute_script("arguments[0].click();", tab_todos)
                 time.sleep(1)
         except Exception:
-            print(f"  -> Aba 'Todos' ausente na página do jogo.")
+            # console.print(f"  [warning]-> Aba 'Todos' ausente na página do jogo.[/warning]")
             return
 
         try:
             scroller_xpath: str = "//div[@data-virtuoso-scroller='true']"
             scroller_el: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, scroller_xpath, timeout=5)
         except Exception:
-            print("  -> Contêiner virtualizado de apostas não encontrado.")
+            # console.print("  [warning]-> Contêiner virtualizado de apostas não encontrado.[/warning]")
             return
 
         scraped_resultado_final: List[ResultadoFinalMarket] = []
@@ -124,7 +125,7 @@ class ReiDoPitacoMarketExplorer:
                 if market_title:
                     if market_title not in self.unique_markets:
                         self.unique_markets.add(market_title)
-                        print(f"----> NOVO MERCADO ENCONTRADO NO SITE: {market_title}")
+                        console.print(f"  [success]↳ NOVO MERCADO ENCONTRADO NO SITE: {market_title}[/success]")
 
                     for strategy in self.strategies:
                         if strategy.can_handle(market_title):
@@ -157,20 +158,20 @@ class ReiDoPitacoScraper:
     # previne falhas causadas por alteração de emojis no DOM.
     TARGET_CATEGORIES: List[str] = [
         "Brasil no topo!!",
-        # "Melhores do Mundo",
-        # "O Melhor da Europa",
-        # "O Melhor da América",
-        # "Rumo à Copa",
-        # "Argentina",
-        # "Chile",
-        # "Clubes Internacionais",
-        # "Colômbia",
-        # "Equador",
-        # "Paraguai",
-        # "Peru",
-        # "Uruguai",
-        # "Venezuela",
-        # "Brasil"
+        "Melhores do Mundo",
+        "O Melhor da Europa",
+        "O Melhor da América",
+        "Rumo à Copa",
+        "Argentina",
+        "Chile",
+        "Clubes Internacionais",
+        "Colômbia",
+        "Equador",
+        "Paraguai",
+        "Peru",
+        "Uruguai",
+        "Venezuela",
+        "Brasil"
     ]
 
     def __init__(self, driver: CustomWebDriver) -> None:
@@ -182,7 +183,7 @@ class ReiDoPitacoScraper:
         Acessa as URLs diretas em cache para atualizar os jogos do dia rapidamente,
         sem precisar passar pela página principal.
         """
-        print("\n🔄 Atualizando lista de jogos do dia usando URLs em cache...")
+        # console.print("[info]🔄 Atualizando lista de jogos do dia usando URLs em cache...[/info]")
         for comp in competitions:
             if not comp.url:
                 continue
@@ -192,7 +193,7 @@ class ReiDoPitacoScraper:
                 # O método abaixo já tem o DriverUtils.wait_presence_by_xpath integrado
                 comp.matches = self._parse_matches_from_page()
             except Exception as e:
-                print(f"  [Erro] Falha ao atualizar jogos para {comp.name}: {e}")
+                console.print(f"  [danger][Erro] Falha ao atualizar jogos para {comp.name}: {e}[/danger]")
 
     def fetch_all_competitions(self) -> Dict[str, Category]:
         """Acessa a página principal e guarda em memória todas as competições configuradas."""
@@ -245,7 +246,7 @@ class ReiDoPitacoScraper:
             return competitions
 
         except Exception as e:
-            print(f"Erro ao tentar extrair a categoria '{category_name}': {e}")
+            console.print(f"[danger]Erro ao tentar extrair a categoria '{category_name}': {e}[/danger]")
             return []
 
     def scrape_all_unique_competitions(self) -> List[Competition]:
@@ -256,11 +257,11 @@ class ReiDoPitacoScraper:
             for comp in cat.competitions:
                 unique_comp_names.add(comp.name)
 
-        print(f"Total de competições ÚNICAS para mapear: {len(unique_comp_names)}")
+        console.print(f"[success]Total de competições ÚNICAS para mapear: {len(unique_comp_names)}[/success]")
         scraped_competitions: List[Competition] = []
 
         for comp_name in unique_comp_names:
-            print(f"Mapeando jogos de: {comp_name}...")
+            console.print(f"[dim]Mapeando jogos de: {comp_name}...[/dim]")
             # Desempacota a tupla
             matches, comp_url = self._navigate_and_extract_matches(comp_name, max_retries=3)
 
@@ -291,12 +292,12 @@ class ReiDoPitacoScraper:
                 return matches, comp_url  # Agora retorna a Tupla
 
             except Exception as e:
-                print(
-                    f"  [Aviso] Falha ao carregar '{comp_name}' (Tentativa {attempt}/{max_retries}). Motivo: {type(e).__name__}")
+                console.print(
+                    f"  [warning][Aviso] Falha ao carregar '{comp_name}' (Tentativa {attempt}/{max_retries}). Motivo: {type(e).__name__}[/warning]")
                 self.driver.get(self.base_url)
                 time.sleep(2)
 
-        print(f"  [Erro] Competição '{comp_name}' ignorada após {max_retries} tentativas falhas.")
+        console.print(f"  [danger][Erro] Competição '{comp_name}' ignorada após {max_retries} tentativas falhas.[/danger]")
         return [], ""
 
     def _parse_matches_from_page(self) -> List[Match]:
@@ -391,7 +392,7 @@ class ReiDoPitacoScraper:
             self.driver.execute_script("window.scrollTo(0, 0);")
 
         except Exception as e:
-            print(f"Erro inesperado no parse dos jogos: {e}")
+            console.print(f"[danger]Erro inesperado no parse dos jogos: {e}[/danger]")
 
         # Retorna apenas a lista de valores (os objetos Match)
         return list(matches_dict.values())

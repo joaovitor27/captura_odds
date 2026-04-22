@@ -25,10 +25,10 @@ class Category:
 @dataclass
 class BaseMarket:
     """Estrutura obrigatória para qualquer mercado mapeado."""
-    competicao: str
-    partida: str
     data: str
     hora: str
+    competicao: str
+    partida: str
 
 
 @dataclass

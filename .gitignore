@@ -1,6 +1,9 @@
-.idea
-.venv
+.idea/
+.venv/
+.vscode/
 __pycache__/
+build/
+dist/
 .env
 *.spec
 *.db
