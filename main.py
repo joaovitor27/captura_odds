@@ -13,11 +13,13 @@ from chromium import CustomWebDriver
 from database.connection import DatabaseManager
 from database.repositories.competition_repository import CompetitionRepository
 from database.repositories.resultado_final_repository import ResultadoFinalRepository
+from database.repositories.total_gols_repository import TotalGolsRepository
 from driver import DriverUtils
 from models.rei_do_pitaco.base_models import Competition
 from scrapers.rei_do_pitaco_scraper import ReiDoPitacoScraper, ReiDoPitacoMarketExplorer
 from strategies.resultado_final_strategy import ResultadoFinalStrategy
 from strategies.strategies import MarketStrategy
+from strategies.total_gols_strategy import TotalGolsStrategy
 from utils.logger import console, clear_screen
 from rich.panel import Panel
 
@@ -26,7 +28,7 @@ if __name__ == '__main__':
     comp_repo = CompetitionRepository(db_manager)
     strategies: List[MarketStrategy] = [
         ResultadoFinalStrategy(ResultadoFinalRepository(db_manager)),
-        # TotalGolsStrategy(TotalGolsRepository(db_manager)), <-- Exemplo futuro
+        TotalGolsStrategy(TotalGolsRepository(db_manager)),
         # HandicapStrategy(HandicapRepository(db_manager)),   <-- Exemplo futuro
     ]
 

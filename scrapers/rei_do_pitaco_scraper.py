@@ -63,7 +63,7 @@ class ReiDoPitacoMarketExplorer:
                         except:
                             self.driver.execute_script("arguments[0].click();", match_el)
 
-                        xpath_tab_todos: str = "//button[@role='tab' and contains(., 'Todos')]"
+                        xpath_tab_todos: str = "//button[@role='tab' and contains(., 'Destaques')]"
                         DriverUtils.wait_presence_by_xpath(self.driver, xpath_tab_todos, timeout=10)
 
                         odds_da_partida = self._extract_markets_from_match_page(comp.name, match)
@@ -78,72 +78,104 @@ class ReiDoPitacoMarketExplorer:
                         console.print(
                             f"  [warning][Aviso] Falha de rota para {match.home_team} x {match.away_team} (Tentativa {attempt}). Erro: {type(e).__name__}[/warning]")
                         if attempt == 3:
-                            console.print(f"  [danger][Erro] Abortando a exploração do jogo {match.home_team}.[/danger]")
+                            console.print(
+                                f"  [danger][Erro] Abortando a exploração do jogo {match.home_team}.[/danger]")
                         else:
                             self.driver.get(comp.url)
                             time.sleep(2)
 
         return self.unique_markets, todas_odds_resultado_final
 
-    def _extract_markets_from_match_page(self, comp_name: str, match: Match) -> list[ResultadoFinalMarket] | None:
+    def _extract_markets_from_match_page(self, comp_name: str, match: Match) -> None:
         """
-        Lida com a interface do jogo: Clica na aba 'Todos', rola o contêiner
-        virtualizado e extrai nomes únicos em tempo real.
+        Lida com a interface do jogo: Clica na aba 'Destaques',
+        abre os accordions (sanfonas) fechados, faz o scroll na janela (Window Scroller)
+        e extrai os mercados.
         """
         try:
-            xpath_tab_todos: str = "//button[@role='tab' and contains(., 'Todos')]"
-            tab_todos: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, xpath_tab_todos, timeout=10)
+            xpath_tab_destaques: str = "//button[@role='tab' and contains(., 'Destaques')]"
+            tab_destaques: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, xpath_tab_destaques, timeout=10)
 
-            # Só clica se já não estiver ativo
-            if "Mui-selected" not in str(tab_todos.get_attribute("class")):
-                self.driver.execute_script("arguments[0].click();", tab_todos)
+            if "Mui-selected" not in str(tab_destaques.get_attribute("class")):
+                self.driver.execute_script("arguments[0].click();", tab_destaques)
                 time.sleep(1)
         except Exception:
-            # console.print(f"  [warning]-> Aba 'Todos' ausente na página do jogo.[/warning]")
             return
 
-        try:
-            scroller_xpath: str = "//div[@data-virtuoso-scroller='true']"
-            scroller_el: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, scroller_xpath, timeout=5)
-        except Exception:
-            # console.print("  [warning]-> Contêiner virtualizado de apostas não encontrado.[/warning]")
-            return
+        # Controle vital: evita reprocessar o mesmo card
+        mercados_lidos_neste_jogo: Set[str] = set()
 
-        scraped_resultado_final: List[ResultadoFinalMarket] = []
+        # Garante que a página inicie no topo para o React Virtuoso renderizar o primeiro card
+        self.driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(0.5)
 
         while True:
-            # Seleciona o card base completo (a div que engloba o mercado inteiro)
             market_cards_xpath: str = "//div[@data-testid='event-market-base-card']"
-            visible_market_cards: List[WebElement] = self.driver.find_elements(By.XPATH, market_cards_xpath)
+            # Pegamos apenas a quantidade de cards na tela atual
+            qnt_cards = len(self.driver.find_elements(By.XPATH, market_cards_xpath))
 
-            for card_el in visible_market_cards:
-                # Extraímos o título para não reprocessar cards que já analisamos neste jogo
-                title_el = card_el.find_element(By.XPATH,
-                                                ".//button[@data-testid='event-market-base-card-toggle']//span")
-                market_title: str = str(title_el.get_attribute("textContent")).strip()
+            # Iteramos por índice para evitar StaleElementReference caso a DOM mude no meio do laço
+            for i in range(qnt_cards):
+                try:
+                    # Refetch obrigatório a cada iteração (padrão ouro para React)
+                    cards = self.driver.find_elements(By.XPATH, market_cards_xpath)
+                    if i >= len(cards):
+                        break
+                    card_el = cards[i]
 
-                if market_title:
-                    if market_title not in self.unique_markets:
-                        self.unique_markets.add(market_title)
-                        console.print(f"  [success]↳ NOVO MERCADO ENCONTRADO NO SITE: {market_title}[/success]")
+                    title_el = card_el.find_element(By.XPATH,
+                                                    ".//button[@data-testid='event-market-base-card-toggle']//span")
+                    market_title: str = str(title_el.get_attribute("textContent")).strip()
 
+                    if not market_title or market_title in mercados_lidos_neste_jogo:
+                        continue
+
+                    # 1. 🛑 CORREÇÃO DA SANFONA: Se o mercado estiver colapsado, clica para abrir
+                    try:
+                        btn_expand = card_el.find_element(By.XPATH, ".//button[@aria-expanded]")
+                        if btn_expand.get_attribute("aria-expanded") == "false":
+                            self.driver.execute_script("arguments[0].click();", btn_expand)
+                            time.sleep(0.5)  # Aguarda a animação Tailwind (duration-300) terminar
+
+                            # Após expandir, a DOM do card mudou. Fazemos refetch do elemento específico.
+                            cards = self.driver.find_elements(By.XPATH, market_cards_xpath)
+                            card_el = cards[i]
+                    except:
+                        pass  # Nem todos os cards tem botão de expandir, segue a vida.
+
+                    # 2. Delega a extração para as Strategies (agora com a sanfona aberta!)
                     for strategy in self.strategies:
                         if strategy.can_handle(market_title):
                             strategy.parse_and_accumulate(card_el, comp_name, match)
                             break
 
-            self.driver.execute_script("arguments[0].scrollTop += arguments[0].clientHeight;", scroller_el)
+                    # Só marca como lido se tudo deu certo
+                    mercados_lidos_neste_jogo.add(market_title)
+
+                    # if market_title not in self.unique_markets:
+                    #     self.unique_markets.add(market_title)
+                    #     console.print(f"  [success]↳ NOVO MERCADO ENCONTRADO EM DESTAQUES: {market_title}[/success]")
+
+                except Exception:
+                    # Ignora falhas de UI mutável. O próximo scroll cobre o que faltar.
+                    pass
+
+            # 3. 🛑 CORREÇÃO DO SCROLL: Window Scroller
+            self.driver.execute_script("window.scrollBy(0, window.innerHeight * 0.6);")
             time.sleep(0.5)
 
             is_at_bottom: bool = bool(self.driver.execute_script(
-                "return Math.ceil(arguments[0].scrollTop + arguments[0].clientHeight) >= arguments[0].scrollHeight;",
-                scroller_el
+                "return Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;"
             ))
 
             if is_at_bottom:
-                break
-
-        return scraped_resultado_final
+                # Dupla checagem para evitar que o robô pare num falso-fundo (lazy loading atrasado)
+                time.sleep(1)
+                is_really_at_bottom: bool = bool(self.driver.execute_script(
+                    "return Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;"
+                ))
+                if is_really_at_bottom:
+                    break
 
 
 class ReiDoPitacoScraper:
@@ -297,7 +329,8 @@ class ReiDoPitacoScraper:
                 self.driver.get(self.base_url)
                 time.sleep(2)
 
-        console.print(f"  [danger][Erro] Competição '{comp_name}' ignorada após {max_retries} tentativas falhas.[/danger]")
+        console.print(
+            f"  [danger][Erro] Competição '{comp_name}' ignorada após {max_retries} tentativas falhas.[/danger]")
         return [], ""
 
     def _parse_matches_from_page(self) -> List[Match]:
