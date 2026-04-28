@@ -46,7 +46,7 @@ class ReiDoPitacoMarketExplorer:
 
             if comp.url:
                 self.driver.get(comp.url)
-                time.sleep(1.5)
+                time.sleep(1.0)
             else:
                 console.print(f"  [danger][Erro] URL não encontrada para {comp.name}. Pulando.[/danger]")
                 continue
@@ -54,7 +54,7 @@ class ReiDoPitacoMarketExplorer:
             for match in comp.matches:
                 for attempt in range(1, 4):
                     try:
-                        xpath_match_card: str = f"(//div[@aria-label='UIOneAgainstTwoPreEventLine' and contains(., '{match.home_team}')]//div[@role='button'])[1]"
+                        xpath_match_card: str = f"(//div[contains(@aria-label, 'EventLine') and contains(., '{match.home_team}')]//div[@role='button'])[1]"
                         match_el: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, xpath_match_card,
                                                                                   timeout=10)
 
@@ -71,7 +71,7 @@ class ReiDoPitacoMarketExplorer:
                             todas_odds_resultado_final.extend(odds_da_partida)
 
                         self.driver.back()
-                        time.sleep(1.5)
+                        time.sleep(1)
                         break
 
                     except Exception as e:
@@ -82,7 +82,7 @@ class ReiDoPitacoMarketExplorer:
                                 f"  [danger][Erro] Abortando a exploração do jogo {match.home_team}.[/danger]")
                         else:
                             self.driver.get(comp.url)
-                            time.sleep(2)
+                            time.sleep(1.5)
 
         return self.unique_markets, todas_odds_resultado_final
 
@@ -98,7 +98,7 @@ class ReiDoPitacoMarketExplorer:
 
             if "Mui-selected" not in str(tab_destaques.get_attribute("class")):
                 self.driver.execute_script("arguments[0].click();", tab_destaques)
-                time.sleep(1)
+                time.sleep(0.5)
         except Exception:
             return
 
@@ -107,7 +107,7 @@ class ReiDoPitacoMarketExplorer:
 
         # Garante que a página inicie no topo para o React Virtuoso renderizar o primeiro card
         self.driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(0.5)
+        time.sleep(0.25)
 
         while True:
             market_cards_xpath: str = "//div[@data-testid='event-market-base-card']"
@@ -135,7 +135,7 @@ class ReiDoPitacoMarketExplorer:
                         btn_expand = card_el.find_element(By.XPATH, ".//button[@aria-expanded]")
                         if btn_expand.get_attribute("aria-expanded") == "false":
                             self.driver.execute_script("arguments[0].click();", btn_expand)
-                            time.sleep(0.5)  # Aguarda a animação Tailwind (duration-300) terminar
+                            time.sleep(0.25)  # Aguarda a animação Tailwind (duration-300) terminar
 
                             # Após expandir, a DOM do card mudou. Fazemos refetch do elemento específico.
                             cards = self.driver.find_elements(By.XPATH, market_cards_xpath)
@@ -162,7 +162,7 @@ class ReiDoPitacoMarketExplorer:
 
             # 3. 🛑 CORREÇÃO DO SCROLL: Window Scroller
             self.driver.execute_script("window.scrollBy(0, window.innerHeight * 0.6);")
-            time.sleep(0.5)
+            time.sleep(0.25)
 
             is_at_bottom: bool = bool(self.driver.execute_script(
                 "return Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;"
@@ -170,7 +170,7 @@ class ReiDoPitacoMarketExplorer:
 
             if is_at_bottom:
                 # Dupla checagem para evitar que o robô pare num falso-fundo (lazy loading atrasado)
-                time.sleep(1)
+                time.sleep(0.5)
                 is_really_at_bottom: bool = bool(self.driver.execute_script(
                     "return Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight;"
                 ))
@@ -313,7 +313,7 @@ class ReiDoPitacoScraper:
                 comp_element = DriverUtils.wait_presence_by_xpath(self.driver, xpath_comp, timeout=10)
 
                 self.driver.execute_script("arguments[0].click();", comp_element)
-                time.sleep(1.5)
+                time.sleep(1)
 
                 # CAPTURA DA URL EXATA DA COMPETIÇÃO
                 comp_url: str = self.driver.current_url
@@ -327,7 +327,7 @@ class ReiDoPitacoScraper:
                 console.print(
                     f"  [warning][Aviso] Falha ao carregar '{comp_name}' (Tentativa {attempt}/{max_retries}). Motivo: {type(e).__name__}[/warning]")
                 self.driver.get(self.base_url)
-                time.sleep(2)
+                time.sleep(1.5)
 
         console.print(
             f"  [danger][Erro] Competição '{comp_name}' ignorada após {max_retries} tentativas falhas.[/danger]")
@@ -343,9 +343,9 @@ class ReiDoPitacoScraper:
         matches_dict: Dict[str, Match] = {}
 
         try:
-            # Novo XPath estrutural: Pega qualquer linha que tenha a div de times (flex-1) e a de odds (flex-2)
-            # Isso ignora se o jogo é PreEvent ou "undefined--line" (Ao Vivo)
-            xpath_any_match_row = "//div[div[contains(@class, 'flex-1')] and div[contains(@class, 'flex-2')]]"
+            # Novo XPath estrutural: Pega qualquer linha que possua a marcação 'EventLine' ou '--line' no aria-label
+            # Isso é mais resiliente do que confiar em 'flex-1' e 'flex-2' que podem mudar via Tailwind
+            xpath_any_match_row = "//div[contains(@aria-label, 'EventLine') or contains(@aria-label, '--line')]"
 
             try:
                 # Aguarda a estrutura de jogos carregar
@@ -374,7 +374,8 @@ class ReiDoPitacoScraper:
 
                         match_time = "Indefinido"
 
-                        time_spans = match_el.find_elements(By.XPATH, ".//span[contains(@class, 'mui-1kkvss8')]")
+                        # Usa classe mais genérica além do hash gerado aleatoriamente
+                        time_spans = match_el.find_elements(By.XPATH, ".//span[contains(@class, 'mui-1kkvss8') or contains(@class, 'MuiTypography-dmSans_tag_base_small_bold')]")
                         if time_spans:
                             match_time = time_spans[0].get_attribute("textContent").strip()
                         else:
@@ -398,7 +399,7 @@ class ReiDoPitacoScraper:
                         continue
 
                 self.driver.execute_script("window.scrollBy(0, 800);")
-                time.sleep(0.5)
+                time.sleep(0.25)
 
                 # 4. Cálculo para saber se chegou ao fim da página
                 new_height = self.driver.execute_script("return document.body.scrollHeight")
@@ -406,7 +407,7 @@ class ReiDoPitacoScraper:
 
                 if current_scroll >= new_height:
                     # Dá um pequeno delay e checa novamente para evitar falsos positivos de lazy loading
-                    time.sleep(1)
+                    time.sleep(0.5)
                     current_scroll = self.driver.execute_script("return window.pageYOffset + window.innerHeight")
                     new_height = self.driver.execute_script("return document.body.scrollHeight")
                     if current_scroll >= new_height:
