@@ -14,12 +14,16 @@ from database.connection import DatabaseManager
 from database.repositories.competition_repository import CompetitionRepository
 from database.repositories.resultado_final_repository import ResultadoFinalRepository
 from database.repositories.total_gols_repository import TotalGolsRepository
+from database.repositories.dupla_chance_repository import DuplaChanceRepository
+from database.repositories.total_escanteios_repository import TotalEscanteiosRepository
 from driver import DriverUtils
 from models.rei_do_pitaco.base_models import Competition
 from scrapers.rei_do_pitaco_scraper import ReiDoPitacoScraper, ReiDoPitacoMarketExplorer
 from strategies.resultado_final_strategy import ResultadoFinalStrategy
 from strategies.strategies import MarketStrategy
 from strategies.total_gols_strategy import TotalGolsStrategy
+from strategies.dupla_chance_strategy import DuplaChanceStrategy
+from strategies.total_escanteios_strategy import TotalEscanteiosStrategy
 from utils.logger import console, clear_screen
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -31,6 +35,8 @@ if __name__ == '__main__':
     available_strategies = [
         ("Resultado Final", ResultadoFinalStrategy(ResultadoFinalRepository(db_manager))),
         ("Total de Gols", TotalGolsStrategy(TotalGolsRepository(db_manager))),
+        ("Dupla Chance", DuplaChanceStrategy(DuplaChanceRepository(db_manager))),
+        ("Total de Escanteios", TotalEscanteiosStrategy(TotalEscanteiosRepository(db_manager))),
     ]
 
     competitions_data: List[Competition] = comp_repo.get_all()
