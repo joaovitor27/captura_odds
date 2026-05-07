@@ -24,6 +24,16 @@ from strategies.strategies import MarketStrategy
 from strategies.total_gols_strategy import TotalGolsStrategy
 from strategies.dupla_chance_strategy import DuplaChanceStrategy
 from strategies.total_escanteios_strategy import TotalEscanteiosStrategy
+from database.repositories.ambos_marcam_repository import AmbosMarcamRepository
+from strategies.ambos_marcam_strategy import AmbosMarcamStrategy
+from database.repositories.primeiro_tempo_resultado_repository import PrimeiroTempoResultadoRepository
+from strategies.primeiro_tempo_resultado_strategy import PrimeiroTempoResultadoStrategy
+from database.repositories.defesas_goleiro_repository import DefesasGoleiroRepository
+from strategies.defesas_goleiro_strategy import DefesasGoleiroStrategy
+from database.repositories.finalizacoes_gol_repository import FinalizacoesGolRepository
+from strategies.finalizacoes_gol_strategy import FinalizacoesGolStrategy
+from database.repositories.intervalo_final_jogo_repository import IntervaloFinalJogoRepository
+from strategies.intervalo_final_jogo_strategy import IntervaloFinalJogoStrategy
 from utils.logger import console, clear_screen
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -37,6 +47,11 @@ if __name__ == '__main__':
         ("Total de Gols", TotalGolsStrategy(TotalGolsRepository(db_manager))),
         ("Dupla Chance", DuplaChanceStrategy(DuplaChanceRepository(db_manager))),
         ("Total de Escanteios", TotalEscanteiosStrategy(TotalEscanteiosRepository(db_manager))),
+        ("Ambos Marcam", AmbosMarcamStrategy(AmbosMarcamRepository(db_manager))),
+        ("1º Tempo - Resultado", PrimeiroTempoResultadoStrategy(PrimeiroTempoResultadoRepository(db_manager))),
+        ("Defesas de Goleiro", DefesasGoleiroStrategy(DefesasGoleiroRepository(db_manager))),
+        ("Finalizações no Gol", FinalizacoesGolStrategy(FinalizacoesGolRepository(db_manager))),
+        ("Intervalo/Final do Jogo", IntervaloFinalJogoStrategy(IntervaloFinalJogoRepository(db_manager))),
     ]
 
     competitions_data: List[Competition] = comp_repo.get_all()

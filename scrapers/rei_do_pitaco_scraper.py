@@ -54,7 +54,7 @@ class ReiDoPitacoMarketExplorer:
             for match in comp.matches:
                 for attempt in range(1, 4):
                     try:
-                        xpath_match_card: str = f"(//div[contains(@aria-label, 'EventLine') and contains(., '{match.home_team}')]//div[@role='button'])[1]"
+                        xpath_match_card: str = f"(//div[contains(@aria-label, 'EventLine') and contains(., '{match.home_team}')]//a)[1]"
                         match_el: WebElement = DriverUtils.wait_presence_by_xpath(self.driver, xpath_match_card,
                                                                                   timeout=10)
 
@@ -146,7 +146,10 @@ class ReiDoPitacoMarketExplorer:
                     # 2. Delega a extração para as Strategies (agora com a sanfona aberta!)
                     for strategy in self.strategies:
                         if strategy.can_handle(market_title):
-                            strategy.parse_and_accumulate(card_el, comp_name, match)
+                            try:
+                                strategy.parse_and_accumulate(card_el, comp_name, match)
+                            except Exception as e:
+                                console.print(f"  [warning][Aviso] Falha ao extrair mercado '{market_title}' para {match.home_team} x {match.away_team}: {e}[/warning]")
                             break
 
                     # Só marca como lido se tudo deu certo
